@@ -1,0 +1,94 @@
+local proj_name = 'shenbingqj0112'		--项目ID	
+local gitee_uname = 'dysw_admin'	--gitee账户名	参数作废
+local hotfix = false				--是否启用热更新
+function inittsplugin11()
+	local sysver = getOSVer()    --获取系统版本
+	sysver = sysver:match('%d+')
+	if tonumber(sysver) == 11 then	
+		local file = io.open(userPath()..'/plugin_ios11/ts.so', "rb")
+		if file then file:close() end
+		if file == nil then 
+			os.execute('cp /var/mobile/Media/TouchSpriteENT/plugin/ts.so /var/mobile/Media/TouchSpriteENT/plugin_ios11/ts.so')	
+			toast('初始化插件  ',5)
+		end
+	end                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+end
+-------------引入基础函数库-----------------
+require("SLib")
+--------------------------------------------
+_G.caller = nil			--声明动态调用对象
+--------------------------------------------
+
+-------------初始化数据库接口---------------------------------------------------
+local api_dbadd = "http://api.tianqin.cn:70/GameD.php?m=Manage&c=JasonAdd"
+local api_dbquery = "http://api.tianqin.cn:70/GameD.php?m=Manage&c=JasonCx"
+local api_dbupdate = "http://api.tianqin.cn:70/GameD.php?m=Manage&c=JasonUpdt"
+setdbapi(api_dbadd,api_dbquery,api_dbupdate)
+--------------------------------------------------------------------------------
+--初始化网络ASZ~Y
+if not isNetworkConnected() then 
+	toast('网络未连接,重启网络',2)
+	mSleep(2000)
+	if not restartNetwork() then  --如果网络未连接,且重启网络失败,则闪烁屏幕
+		init(0)
+		nLog('未连接网络,脚本无法启动')
+		findDevice()
+	end
+end
+
+local function _initliaze()
+	--初始化热更新支持对象
+	local patcher = Patcher:new(gitee_uname,proj_name)
+	if hotfix then patcher:UOne('Config') else assert(pcall(function()require("Config")end),'未启动热更新,请将配置文件放在本地') end
+	if hotfix and config.hotfix then
+		config.hotfix = true
+	else
+		config.hotfix = false
+	end
+	--引入脚本逻辑和杂项文件
+	if hotfix then 
+		patcher:U(config.logicfiles)
+		patcher:U(config.hotfixlist)
+	else
+		for _,v in pairs(config.logicfiles) do
+			assert(pcall(function()require(v)end),'文件'..v..'.lua引入失败')
+		end
+		for _,v in pairs(config.hotfixlist) do
+			assert(pcall(function()require(v)end),'文件'..v..'.lua引入失败')
+		end
+	end
+	_G.caller = Caller:new(patcher,config.hotfix,config.hotfixlist)
+end
+
+_initliaze() --初始化框架
+
+--clearBackground()
+
+--Logic.run()  --启动脚本逻辑
+
+while(true) do 
+	local status,ret = pcall(function()
+			Logic.test()
+--			Logic.run()
+		end)
+	if not status then 
+		sdebug(ret)
+		if ret:match('User Exit') ~= nil then sdebug("脚本正常停止") break end
+		if ret:match('restart') ~= nil then 
+			sdebug("手动触发脚本重启")
+		else
+			sdebug(ret)
+			findDevice()
+			dialog(ret)
+			break
+		end
+	else
+		break
+	end
+end
+
+
+
+
+
+
